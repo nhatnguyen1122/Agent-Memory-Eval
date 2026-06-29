@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EVAL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${EVAL_DIR}"
 
-CONDA_ENV="${CONDA_ENV:-memory_eval312}"
+CONDA_ENV="${CONDA_ENV:-mem}"
 NVIDIA_BASE_URL="${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}"
 NVIDIA_API_KEY="${NVIDIA_API_KEY:-}"
 PROJECT_PREFIX="${PROJECT_PREFIX:-nim-locomo}"
