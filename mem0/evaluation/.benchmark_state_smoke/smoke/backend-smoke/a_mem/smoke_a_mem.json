@@ -1,0 +1,38 @@
+[
+  {
+    "id": "50f7f800-fe96-4782-8e3d-c36366b3289a",
+    "content": "user: On 2026-01-10 my favorite dessert is tiramisu.",
+    "keywords": [],
+    "links": [],
+    "retrieval_count": 0,
+    "timestamp": "202606291836",
+    "last_accessed": "202606291836",
+    "context": "General",
+    "evolution_history": [],
+    "category": "Uncategorized",
+    "tags": [
+      "Dessert",
+      "Favorite",
+      "Tiramisu"
+    ]
+  },
+  {
+    "id": "8f0d76e0-2763-4cb0-bf89-b430836534dc",
+    "content": "user: On 2026-02-20 I said I am planning a trip to Kyoto in October.",
+    "keywords": [],
+    "links": [
+      "memory index:0"
+    ],
+    "retrieval_count": 0,
+    "timestamp": "202606291836",
+    "last_accessed": "202606291836",
+    "context": "General",
+    "evolution_history": [],
+    "category": "Uncategorized",
+    "tags": [
+      "Trip",
+      "Travel",
+      "Kyoto"
+    ]
+  }
+]

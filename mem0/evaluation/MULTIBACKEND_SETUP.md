@@ -1,0 +1,57 @@
+# Multi-backend benchmark setup
+
+This setup runs the same `memory-benchmarks` harness against four memory backends:
+
+- `mem0` — current Mem0 with graph/entity linking disabled
+- `mem0_graph` — current Mem0 with graph/entity linking enabled
+- `a_mem`
+- `memorybank`
+
+## Fairness rule
+
+Fairness is enforced by using the same benchmark runner, same dataset, same answerer model, same judge model, same `top_k`, and the same question subsets for every backend. Only the memory backend changes.
+
+## Environment
+
+Recommended conda env:
+
+```bash
+bash mem0/evaluation/scripts/setup_conda_env.sh
+```
+
+Optional overrides:
+
+```bash
+ENV_NAME=memory_eval312 PYTHON_VERSION=3.12 bash mem0/evaluation/scripts/setup_conda_env.sh
+```
+
+## NVIDIA NIM run path
+
+Export the API key and optional model overrides:
+
+```bash
+export NVIDIA_API_KEY=...
+export NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+
+# Example defaults. Override if your NIM account uses different model ids.
+export ANSWERER_MODEL=meta/llama-3.1-70b-instruct
+export JUDGE_MODEL=meta/llama-3.1-70b-instruct
+export MEMORY_MODEL=meta/llama-3.1-70b-instruct
+export MEMORY_EMBEDDER_MODEL=baai/bge-m3
+```
+
+Run the full matrix:
+
+```bash
+bash mem0/evaluation/scripts/run_locomo_matrix.sh
+bash mem0/evaluation/scripts/run_longmemeval_matrix.sh
+bash mem0/evaluation/scripts/run_all_matrix.sh
+```
+
+## Notes
+
+- `mem0` and `mem0_graph` are the current-repo conditions, not paper-era reproductions.
+- `memorybank` here is a lightweight benchmark adapter around MemoryBank-style dated dense retrieval, because the original repo does not provide a reusable LoCoMo / LongMemEval harness.
+- `a_mem` uses the patched OpenAI-compatible `base_url` path and persists its benchmark state under `.benchmark_state/`.
+- `memory-benchmarks` answerer/judge still use the same OpenAI-compatible endpoint for all backends when `--provider openai --base-url ... --api-key ...` is passed.
+- The first real run of `a_mem` or `memorybank` will download sentence-transformer weights if they are not already cached locally.
