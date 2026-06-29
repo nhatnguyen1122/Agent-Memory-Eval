@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EVAL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${EVAL_DIR}/../.." && pwd)"
 
-ENV_NAME="${ENV_NAME:-memory_eval312}"
+ENV_NAME="${ENV_NAME:-mem}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
 
 if ! command -v conda >/dev/null 2>&1; then
