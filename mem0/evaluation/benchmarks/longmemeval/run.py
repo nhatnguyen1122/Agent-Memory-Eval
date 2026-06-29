@@ -95,6 +95,7 @@ DATASET_URL = (
 DEFAULT_DATASET_DIR = "datasets/longmemeval"
 DEFAULT_DATASET_FILE = "longmemeval_s_cleaned.json"
 CHUNK_SIZE = 2  # messages per ingestion chunk (user+assistant pair)
+MAX_INGEST_RETRIES = 3
 
 
 # ===============================================================================
@@ -449,10 +450,33 @@ async def ingest_question(
                     debug_file.write(f"  {msg['role']}: {msg['content'][:200]}\n")
                 debug_file.write("\n")
 
-            response = await mem0.add(messages, user_id, timestamp=session_timestamp)
+            response = None
+            for attempt in range(1, MAX_INGEST_RETRIES + 1):
+                response = await mem0.add(messages, user_id, timestamp=session_timestamp)
+                if response is not None:
+                    break
+                if attempt < MAX_INGEST_RETRIES:
+                    logger.warning(
+                        "Ingestion failed: %s session %d pair %d (attempt %d/%d), retrying",
+                        question_id,
+                        session_idx,
+                        pair_idx,
+                        attempt,
+                        MAX_INGEST_RETRIES,
+                    )
+                    await asyncio.sleep(min(2 ** (attempt - 1), 8))
 
             if response is not None:
                 total_processed += 1
+                chunks_already_done.add(chunk_key)
+                checkpoint.save_progress(key, {
+                    "question_id": question_id,
+                    "user_id": user_id,
+                    "run_id": run_id,
+                    "chunk_size": CHUNK_SIZE,
+                    "completed_chunks": list(chunks_already_done),
+                })
+                pbar.update(1)
                 if debug_file:
                     results = response.get("results", [])
                     if results:
@@ -464,24 +488,18 @@ async def ingest_question(
                         debug_file.write("\n")
             else:
                 total_failed += 1
-                logger.warning(
-                    "Ingestion failed: %s session %d pair %d",
-                    question_id, session_idx, pair_idx,
+                logger.error(
+                    "Ingestion failed permanently: %s session %d pair %d after %d attempts",
+                    question_id,
+                    session_idx,
+                    pair_idx,
+                    MAX_INGEST_RETRIES,
                 )
 
-            chunks_already_done.add(chunk_key)
-            checkpoint.save_progress(key, {
-                "question_id": question_id,
-                "user_id": user_id,
-                "run_id": run_id,
-                "chunk_size": CHUNK_SIZE,
-                "completed_chunks": list(chunks_already_done),
-            })
             pbar.set_description(
                 f"Ingest {question_id}"
                 + (f" [!fail={total_failed}]" if total_failed else "")
             )
-            pbar.update(1)
 
     pbar.close()
     if debug_file:
@@ -490,14 +508,15 @@ async def ingest_question(
         )
         debug_file.close()
 
-    checkpoint.save_complete(key, {
-        "question_id": question_id,
-        "user_id": user_id,
-        "run_id": run_id,
-        "chunk_size": CHUNK_SIZE,
-        "total_pairs_processed": total_processed,
-        "total_pairs_failed": total_failed,
-    })
+    if total_failed == 0:
+        checkpoint.save_complete(key, {
+            "question_id": question_id,
+            "user_id": user_id,
+            "run_id": run_id,
+            "chunk_size": CHUNK_SIZE,
+            "total_pairs_processed": total_processed,
+            "total_pairs_failed": total_failed,
+        })
 
     return total_failed == 0, user_id, total_processed
 
@@ -1354,6 +1373,7 @@ async def async_main() -> None:
                             logger.error(
                                 "Ingestion failed for question %s", question_id,
                             )
+                            return
 
                         if shutdown.requested:
                             return

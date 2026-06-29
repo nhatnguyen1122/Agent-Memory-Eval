@@ -48,6 +48,22 @@ bash mem0/evaluation/scripts/run_longmemeval_matrix.sh
 bash mem0/evaluation/scripts/run_all_matrix.sh
 ```
 
+Run the smaller subset matrix:
+
+```bash
+bash mem0/evaluation/scripts/run_locomo_small_matrix.sh
+bash mem0/evaluation/scripts/run_longmemeval_small_matrix.sh
+bash mem0/evaluation/scripts/run_small_matrix.sh
+```
+
+Small subset defaults:
+
+- LoCoMo: conversation `0`, categories `1,4` (`multi-hop`, `single-hop`), `MAX_QUESTIONS=20`
+- LongMemEval: question types `multi-session,single-session-user`, `PER_TYPE=5`
+- All four backends: `mem0 mem0_graph a_mem memorybank`
+- Safer runtime defaults: `MAX_WORKERS=1`, `RPM=30`
+- Smaller default LLMs: `meta/llama-3.1-8b-instruct`
+
 ## Notes
 
 - `mem0` and `mem0_graph` are the current-repo conditions, not paper-era reproductions.

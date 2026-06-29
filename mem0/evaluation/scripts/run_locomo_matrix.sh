@@ -15,6 +15,13 @@ ANSWERER_MODEL="${ANSWERER_MODEL:-meta/llama-3.1-70b-instruct}"
 JUDGE_MODEL="${JUDGE_MODEL:-meta/llama-3.1-70b-instruct}"
 MEMORY_MODEL="${MEMORY_MODEL:-meta/llama-3.1-70b-instruct}"
 MEMORY_EMBEDDER_MODEL="${MEMORY_EMBEDDER_MODEL:-baai/bge-m3}"
+MAX_WORKERS="${MAX_WORKERS:-2}"
+RPM="${RPM:-60}"
+TOP_K="${TOP_K:-200}"
+TOP_K_CUTOFFS="${TOP_K_CUTOFFS:-10,20,50,200}"
+CONVERSATIONS="${CONVERSATIONS:-0,1,2,3,4,5,6,7,8,9}"
+CATEGORIES="${CATEGORIES:-1,2,3,4}"
+MAX_QUESTIONS="${MAX_QUESTIONS:-}"
 
 if [[ -z "${NVIDIA_API_KEY}" ]]; then
   echo "NVIDIA_API_KEY is required."
@@ -35,5 +42,12 @@ for backend in ${BACKENDS}; do
     --memory-api-key "${NVIDIA_API_KEY}" \
     --memory-base-url "${NVIDIA_BASE_URL}" \
     --memory-model "${MEMORY_MODEL}" \
-    --memory-embedder-model "${MEMORY_EMBEDDER_MODEL}"
+    --memory-embedder-model "${MEMORY_EMBEDDER_MODEL}" \
+    --max-workers "${MAX_WORKERS}" \
+    --rpm "${RPM}" \
+    --top-k "${TOP_K}" \
+    --top-k-cutoffs "${TOP_K_CUTOFFS}" \
+    --conversations "${CONVERSATIONS}" \
+    --categories "${CATEGORIES}" \
+    ${MAX_QUESTIONS:+--max-questions "${MAX_QUESTIONS}"}
 done

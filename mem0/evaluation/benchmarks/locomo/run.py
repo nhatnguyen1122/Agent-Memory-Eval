@@ -87,6 +87,7 @@ DATASET_URL = "https://raw.githubusercontent.com/snap-research/locomo/main/data/
 DEFAULT_DATASET_DIR = "datasets/locomo"
 DEFAULT_DATASET_FILE = "locomo10.json"
 CHUNK_SIZE = 1  # turns per ingestion chunk
+MAX_INGEST_RETRIES = 3
 
 
 # ===============================================================================
@@ -338,10 +339,33 @@ async def ingest_conversation(
                     debug_file.write(f"  {msg['role']}: {msg['content']}\n")
                 debug_file.write("\n")
 
-            response = await mem0.add(messages, user_id, timestamp=session_epoch)
+            response = None
+            for attempt in range(1, MAX_INGEST_RETRIES + 1):
+                response = await mem0.add(messages, user_id, timestamp=session_epoch)
+                if response is not None:
+                    break
+                if attempt < MAX_INGEST_RETRIES:
+                    logger.warning(
+                        "Ingestion failed: conv %d %s chunk %d (attempt %d/%d), retrying",
+                        conv_idx,
+                        session_key,
+                        chunk_idx,
+                        attempt,
+                        MAX_INGEST_RETRIES,
+                    )
+                    await asyncio.sleep(min(2 ** (attempt - 1), 8))
 
             if response is not None:
                 total_processed += 1
+                chunks_already_done.add(chunk_key)
+                checkpoint.save_progress(key, {
+                    "conversation_idx": conv_idx,
+                    "user_id": user_id,
+                    "run_id": run_id,
+                    "chunk_size": CHUNK_SIZE,
+                    "completed_chunks": list(chunks_already_done),
+                })
+                pbar.update(1)
                 if debug_file:
                     results = response.get("results", [])
                     if results:
@@ -353,31 +377,28 @@ async def ingest_conversation(
                         debug_file.write("\n")
             else:
                 total_failed += 1
-                logger.warning("Ingestion failed: conv %d %s chunk %d", conv_idx, session_key, chunk_idx)
-
-            chunks_already_done.add(chunk_key)
-            checkpoint.save_progress(key, {
-                "conversation_idx": conv_idx,
-                "user_id": user_id,
-                "run_id": run_id,
-                "chunk_size": CHUNK_SIZE,
-                "completed_chunks": list(chunks_already_done),
-            })
-            pbar.update(1)
+                logger.error(
+                    "Ingestion failed permanently: conv %d %s chunk %d after %d attempts",
+                    conv_idx,
+                    session_key,
+                    chunk_idx,
+                    MAX_INGEST_RETRIES,
+                )
 
     pbar.close()
     if debug_file:
         debug_file.write(f"\nSUMMARY: {total_processed}/{total_chunks} OK, {total_failed} failed\n")
         debug_file.close()
 
-    checkpoint.save_complete(key, {
-        "conversation_idx": conv_idx,
-        "user_id": user_id,
-        "run_id": run_id,
-        "chunk_size": CHUNK_SIZE,
-        "total_chunks_processed": total_processed,
-        "total_chunks_failed": total_failed,
-    })
+    if total_failed == 0:
+        checkpoint.save_complete(key, {
+            "conversation_idx": conv_idx,
+            "user_id": user_id,
+            "run_id": run_id,
+            "chunk_size": CHUNK_SIZE,
+            "total_chunks_processed": total_processed,
+            "total_chunks_failed": total_failed,
+        })
 
     return total_failed == 0, user_id, total_processed
 
@@ -939,6 +960,7 @@ async def async_main() -> None:
             )
             if not success:
                 logger.error("Ingestion failed for conversation %d", conv_idx)
+                return
 
             if shutdown.requested:
                 return

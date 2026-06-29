@@ -16,16 +16,20 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import math
 import os
 import shutil
 import sys
+import traceback
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from benchmarks.common.mem0_client import Mem0Client
+
+logger = logging.getLogger(__name__)
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
 MEM0_REPO = WORKSPACE_ROOT / "mem0"
@@ -208,7 +212,9 @@ class CurrentMem0Backend(BaseMemoryBackend):
 
         try:
             response = await asyncio.to_thread(_run_add)
-        except Exception:
+        except Exception as exc:
+            logger.error("CurrentMem0Backend.add failed for user_id=%s: %s", user_id, exc)
+            logger.debug("%s", traceback.format_exc())
             return None
 
         raw_results = response.get("results", []) if isinstance(response, dict) else []
@@ -243,7 +249,9 @@ class CurrentMem0Backend(BaseMemoryBackend):
 
         try:
             response = await asyncio.to_thread(_run_search)
-        except Exception:
+        except Exception as exc:
+            logger.error("CurrentMem0Backend.search failed for user_id=%s: %s", user_id, exc)
+            logger.debug("%s", traceback.format_exc())
             return []
 
         raw_results = response.get("results", []) if isinstance(response, dict) else []
