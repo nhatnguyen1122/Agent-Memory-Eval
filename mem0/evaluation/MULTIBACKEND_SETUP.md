@@ -51,6 +51,8 @@ bash mem0/evaluation/scripts/run_all_matrix.sh
 Run the smaller subset matrix:
 
 ```bash
+bash mem0/evaluation/scripts/run_locomo_multihop_small_matrix.sh
+bash mem0/evaluation/scripts/run_locomo_singlehop_small_matrix.sh
 bash mem0/evaluation/scripts/run_locomo_small_matrix.sh
 bash mem0/evaluation/scripts/run_longmemeval_small_matrix.sh
 bash mem0/evaluation/scripts/run_small_matrix.sh
@@ -58,7 +60,9 @@ bash mem0/evaluation/scripts/run_small_matrix.sh
 
 Small subset defaults:
 
-- LoCoMo: conversation `0`, categories `1,4` (`multi-hop`, `single-hop`), `MAX_QUESTIONS=20`
+- LoCoMo multi-hop: conversation `0`, category `1`, `MAX_QUESTIONS=20`
+- LoCoMo single-hop: conversation `0`, category `4`, `MAX_QUESTIONS=20`
+- `run_locomo_small_matrix.sh` runs both LoCoMo category-specific jobs
 - LongMemEval: question types `multi-session,single-session-user`, `PER_TYPE=5`
 - All four backends: `mem0 mem0_graph a_mem memorybank`
 - Safer runtime defaults: `MAX_WORKERS=1`, `RPM=30`
