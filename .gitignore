@@ -1,2 +1,34 @@
 .DS_Store
 tmp_mem0_backend_test/
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local conda/virtual environments
+.conda/
+.venv/
+venv/
+
+# Benchmark generated outputs/state
+mem0/evaluation/results/
+mem0/evaluation/logs/
+mem0/evaluation/.benchmark_state/
+mem0/evaluation/datasets/
+mem0/evaluation/sv/
+mem0/evaluation/**/*.log
+
+# Chroma/vector-store artifacts
+**/chroma.sqlite3
+**/data_level0.bin
+**/header.bin
+**/length.bin
+**/link_lists.bin
