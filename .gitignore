@@ -22,6 +22,7 @@ venv/
 mem0/evaluation/results/
 mem0/evaluation/logs/
 mem0/evaluation/.benchmark_state/
+mem0/evaluation/.benchmark_state_smoke*/
 mem0/evaluation/datasets/
 mem0/evaluation/sv/
 mem0/evaluation/**/*.log

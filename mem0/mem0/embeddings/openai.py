@@ -34,6 +34,16 @@ class OpenAIEmbedding(EmbeddingBase):
 
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
+    def _extra_body(self, memory_action: Optional[Literal["add", "search", "update"]] = None):
+        action_input_type = {
+            "add": self.config.memory_add_embedding_type,
+            "search": self.config.memory_search_embedding_type,
+            "update": self.config.memory_update_embedding_type,
+        }.get(memory_action)
+        if action_input_type:
+            return {"input_type": action_input_type}
+        return None
+
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
         Get the embedding for the given text using OpenAI.
@@ -52,6 +62,9 @@ class OpenAIEmbedding(EmbeddingBase):
         }
         if self._pass_dimensions_to_api:
             kwargs["dimensions"] = self.config.embedding_dims
+        extra_body = self._extra_body(memory_action)
+        if extra_body:
+            kwargs["extra_body"] = extra_body
         return self.client.embeddings.create(**kwargs).data[0].embedding
 
     def embed_batch(self, texts, memory_action="add"):
@@ -71,6 +84,9 @@ class OpenAIEmbedding(EmbeddingBase):
             }
             if self._pass_dimensions_to_api:
                 kwargs["dimensions"] = self.config.embedding_dims
+            extra_body = self._extra_body(memory_action)
+            if extra_body:
+                kwargs["extra_body"] = extra_body
             response = self.client.embeddings.create(**kwargs)
             all_embeddings.extend(item.embedding for item in sorted(response.data, key=lambda x: x.index))
         return all_embeddings

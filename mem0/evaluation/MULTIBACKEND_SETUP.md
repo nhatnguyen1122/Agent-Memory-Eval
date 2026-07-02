@@ -37,7 +37,7 @@ export NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 export ANSWERER_MODEL=meta/llama-3.1-70b-instruct
 export JUDGE_MODEL=meta/llama-3.1-70b-instruct
 export MEMORY_MODEL=meta/llama-3.1-70b-instruct
-export MEMORY_EMBEDDER_MODEL=baai/bge-m3
+export MEMORY_EMBEDDER_MODEL=nvidia/nv-embedqa-e5-v5
 ```
 
 Run the full matrix:

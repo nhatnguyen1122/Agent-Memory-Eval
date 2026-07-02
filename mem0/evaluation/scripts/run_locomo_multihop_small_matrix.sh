@@ -19,7 +19,7 @@ export RPM="${RPM:-30}"
 export ANSWERER_MODEL="${ANSWERER_MODEL:-meta/llama-3.1-8b-instruct}"
 export JUDGE_MODEL="${JUDGE_MODEL:-meta/llama-3.1-8b-instruct}"
 export MEMORY_MODEL="${MEMORY_MODEL:-meta/llama-3.1-8b-instruct}"
-export MEMORY_EMBEDDER_MODEL="${MEMORY_EMBEDDER_MODEL:-baai/bge-m3}"
+export MEMORY_EMBEDDER_MODEL="${MEMORY_EMBEDDER_MODEL:-nvidia/nv-embedqa-e5-v5}"
 
 export TOP_K="${TOP_K:-50}"
 export TOP_K_CUTOFFS="${TOP_K_CUTOFFS:-10,20,50}"

@@ -195,7 +195,10 @@ class CurrentMem0Backend(BaseMemoryBackend):
         embedder_config: dict[str, Any] = {
             "provider": "openai",
             "config": {
-                "model": embedder_model or os.getenv("MEMORY_EMBEDDER_MODEL") or "nvidia/llama-3.2-nv-embedqa-1b-v2",
+                "model": embedder_model or os.getenv("MEMORY_EMBEDDER_MODEL") or "nvidia/nv-embedqa-e5-v5",
+                "memory_add_embedding_type": os.getenv("MEMORY_ADD_EMBEDDING_TYPE", "passage"),
+                "memory_update_embedding_type": os.getenv("MEMORY_UPDATE_EMBEDDING_TYPE", "passage"),
+                "memory_search_embedding_type": os.getenv("MEMORY_SEARCH_EMBEDDING_TYPE", "query"),
             },
         }
         if api_key:
@@ -259,20 +262,41 @@ class CurrentMem0Backend(BaseMemoryBackend):
             add_metadata["benchmark_timestamp"] = timestamp
         vector_store_metadata = _metadata_for_vector_store(add_metadata)
 
-        def _run_add():
+        def _run_add(metadata_for_mem0: dict[str, Any] | None):
             return self.memory.add(
                 messages,
                 user_id=user_id,
-                metadata=vector_store_metadata or None,
+                metadata=metadata_for_mem0,
                 prompt=custom_instructions,
             )
 
         try:
-            response = await asyncio.to_thread(_run_add)
+            response = await asyncio.to_thread(_run_add, vector_store_metadata or None)
         except Exception as exc:
-            logger.error("CurrentMem0Backend.add failed for user_id=%s: %s", user_id, exc)
+            logger.error(
+                "CurrentMem0Backend.add failed with metadata for user_id=%s: %s",
+                user_id,
+                exc,
+            )
             logger.debug("%s", traceback.format_exc())
-            return None
+            if vector_store_metadata:
+                try:
+                    response = await asyncio.to_thread(_run_add, None)
+                    logger.warning(
+                        "CurrentMem0Backend.add recovered by retrying without vector-store metadata "
+                        "for user_id=%s",
+                        user_id,
+                    )
+                except Exception as retry_exc:
+                    logger.error(
+                        "CurrentMem0Backend.add failed without metadata for user_id=%s: %s",
+                        user_id,
+                        retry_exc,
+                    )
+                    logger.debug("%s", traceback.format_exc())
+                    return None
+            else:
+                return None
 
         raw_results = response.get("results", []) if isinstance(response, dict) else []
         results = []
