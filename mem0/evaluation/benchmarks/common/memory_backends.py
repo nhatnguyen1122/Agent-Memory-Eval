@@ -195,7 +195,7 @@ class CurrentMem0Backend(BaseMemoryBackend):
         embedder_config: dict[str, Any] = {
             "provider": "openai",
             "config": {
-                "model": embedder_model or os.getenv("MEMORY_EMBEDDER_MODEL") or "nvidia/nv-embedqa-e5-v5",
+                "model": embedder_model or os.getenv("MEMORY_EMBEDDER_MODEL") or "nvidia/llama-nemotron-embed-1b-v2",
                 "memory_add_embedding_type": os.getenv("MEMORY_ADD_EMBEDDING_TYPE", "passage"),
                 "memory_update_embedding_type": os.getenv("MEMORY_UPDATE_EMBEDDING_TYPE", "passage"),
                 "memory_search_embedding_type": os.getenv("MEMORY_SEARCH_EMBEDDING_TYPE", "query"),
