@@ -473,5 +473,16 @@ def format_search_results(search_results: list[dict]) -> tuple[list[dict], dict 
             entry["updated_at"] = r["updated_at"]
         if r.get("score_debug"):
             entry["score_debug"] = r["score_debug"]
+        if r.get("metadata"):
+            entry["metadata"] = r["metadata"]
+        for key in (
+            "source_session_id",
+            "source_session_ids",
+            "source_question_id",
+            "source_session_idx",
+            "source_pair_idx",
+        ):
+            if r.get(key) is not None:
+                entry[key] = r[key]
         formatted.append(entry)
     return formatted, query_debug

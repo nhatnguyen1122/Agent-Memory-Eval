@@ -75,3 +75,13 @@ Small subset defaults:
 - `a_mem` uses the patched OpenAI-compatible `base_url` path and persists its benchmark state under `.benchmark_state/`.
 - `memory-benchmarks` answerer/judge still use the same OpenAI-compatible endpoint for all backends when `--provider openai --base-url ... --api-key ...` is passed.
 - The first real run of `a_mem` or `memorybank` will download sentence-transformer weights if they are not already cached locally.
+- LongMemEval exact source-session retrieval metrics are available for new runs only. The harness now stores `source_session_id` provenance in each retrieved memory. Compute `R@5` / `hit@5` with:
+
+```bash
+python3 mem0/evaluation/scripts/score_longmemeval_retrieval.py \
+  results/longmemeval/longmemeval_results_*.json \
+  --cutoffs 5 \
+  --output results/longmemeval/longmemeval_retrieval_r5.csv
+```
+
+If `missing_source_ids` is nonzero, that row is not an exact retrieval measurement; rerun LongMemEval with the patched harness.

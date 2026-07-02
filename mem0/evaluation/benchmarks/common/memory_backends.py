@@ -22,7 +22,7 @@ import os
 import shutil
 import sys
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -73,6 +73,28 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     if norm_a == 0.0 or norm_b == 0.0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+
+def _extract_source_session_ids(metadata: dict[str, Any] | None) -> list[str]:
+    if not metadata:
+        return []
+    values: list[Any] = []
+    if metadata.get("source_session_id"):
+        values.append(metadata["source_session_id"])
+    if metadata.get("source_session_ids"):
+        raw = metadata["source_session_ids"]
+        values.extend(raw if isinstance(raw, list) else [raw])
+    return [str(v) for v in values if v is not None and str(v)]
+
+
+def _dedupe_preserve_order(values: list[str]) -> list[str]:
+    seen = set()
+    deduped = []
+    for value in values:
+        if value not in seen:
+            seen.add(value)
+            deduped.append(value)
+    return deduped
 
 
 class BaseMemoryBackend:
@@ -178,6 +200,22 @@ class CurrentMem0Backend(BaseMemoryBackend):
             "embedder": embedder_config,
         }
         self.memory = Memory.from_config(config)
+        self._source_metadata_path = self.storage_dir / "source_metadata.json"
+        self._source_metadata = self._load_source_metadata()
+
+    def _load_source_metadata(self) -> dict[str, dict[str, Any]]:
+        if not self._source_metadata_path.exists():
+            return {}
+        try:
+            data = json.loads(self._source_metadata_path.read_text())
+        except json.JSONDecodeError:
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _persist_source_metadata(self) -> None:
+        self._source_metadata_path.write_text(
+            json.dumps(self._source_metadata, ensure_ascii=False, indent=2)
+        )
 
     async def close(self) -> None:
         if self._patched_symbols:
@@ -219,14 +257,21 @@ class CurrentMem0Backend(BaseMemoryBackend):
 
         raw_results = response.get("results", []) if isinstance(response, dict) else []
         results = []
+        metadata_changed = False
         for item in raw_results:
+            memory_id = item.get("id", "")
+            if memory_id and add_metadata:
+                self._source_metadata[memory_id] = dict(add_metadata)
+                metadata_changed = True
             results.append(
                 {
-                    "id": item.get("id", ""),
+                    "id": memory_id,
                     "event": item.get("event", "ADD"),
                     "memory": item.get("memory", item.get("data", "")),
                 }
             )
+        if metadata_changed:
+            self._persist_source_metadata()
         return {"results": results}
 
     async def search(
@@ -257,11 +302,18 @@ class CurrentMem0Backend(BaseMemoryBackend):
         raw_results = response.get("results", []) if isinstance(response, dict) else []
         results = []
         for item in raw_results:
+            memory_id = item.get("id", "")
+            item_metadata = item.get("metadata") or self._source_metadata.get(memory_id, {})
+            source_session_ids = _extract_source_session_ids(item_metadata)
             normalized = {
-                "id": item.get("id", ""),
+                "id": memory_id,
                 "memory": item.get("memory", item.get("data", "")),
                 "score": item.get("score", 0.0),
             }
+            if item_metadata:
+                normalized["metadata"] = item_metadata
+            if source_session_ids:
+                normalized["source_session_ids"] = source_session_ids
             score_details = item.get("score_details")
             if score_details:
                 normalized["score_debug"] = {
@@ -303,6 +355,7 @@ class AMemBackend(BaseMemoryBackend):
         self.api_key = api_key
         self.base_url = base_url
         self._systems: dict[str, Any] = {}
+        self._source_metadata: dict[str, dict[str, dict[str, Any]]] = {}
 
     def _state_path(self, user_id: str) -> Path:
         return self.storage_dir / f"{user_id}.json"
@@ -315,8 +368,9 @@ class AMemBackend(BaseMemoryBackend):
             base_url=self.base_url,
         )
 
-    def _serialize_system(self, system: Any) -> list[dict[str, Any]]:
+    def _serialize_system(self, system: Any, user_id: str) -> list[dict[str, Any]]:
         serialized = []
+        user_metadata = self._source_metadata.get(user_id, {})
         for note in system.memories.values():
             serialized.append(
                 {
@@ -331,6 +385,7 @@ class AMemBackend(BaseMemoryBackend):
                     "evolution_history": note.evolution_history,
                     "category": note.category,
                     "tags": note.tags,
+                    "source_metadata": user_metadata.get(note.id, {}),
                 }
             )
         return serialized
@@ -342,8 +397,12 @@ class AMemBackend(BaseMemoryBackend):
             return system
 
         data = json.loads(state_path.read_text())
+        self._source_metadata.setdefault(user_id, {})
         for item in data:
+            source_metadata = item.pop("source_metadata", {}) or {}
             note = self.MemoryNote(**item)
+            if source_metadata:
+                self._source_metadata[user_id][note.id] = source_metadata
             system.memories[note.id] = note
             metadata = {
                 "id": note.id,
@@ -357,6 +416,7 @@ class AMemBackend(BaseMemoryBackend):
                 "evolution_history": note.evolution_history,
                 "category": note.category,
                 "tags": note.tags,
+                "source_metadata": source_metadata,
             }
             system.retriever.add_document(note.content, metadata, note.id)
         return system
@@ -370,7 +430,7 @@ class AMemBackend(BaseMemoryBackend):
 
     def _persist_system(self, user_id: str, system: Any) -> None:
         self._state_path(user_id).write_text(
-            json.dumps(self._serialize_system(system), ensure_ascii=False, indent=2)
+            json.dumps(self._serialize_system(system, user_id), ensure_ascii=False, indent=2)
         )
 
     async def add(
@@ -388,9 +448,16 @@ class AMemBackend(BaseMemoryBackend):
             return {"results": []}
 
         note_time = _epoch_to_ymdhm(timestamp)
+        add_metadata = dict(metadata or {})
+        if observation_date:
+            add_metadata["benchmark_observation_date"] = observation_date
+        if timestamp is not None:
+            add_metadata["benchmark_timestamp"] = timestamp
 
         def _run_add():
             memory_id = system.add_note(content, time=note_time)
+            if add_metadata:
+                self._source_metadata.setdefault(user_id, {})[memory_id] = add_metadata
             self._persist_system(user_id, system)
             return memory_id
 
@@ -417,14 +484,20 @@ class AMemBackend(BaseMemoryBackend):
             return []
 
         formatted = []
+        user_metadata = self._source_metadata.get(user_id, {})
         for item in raw_results:
             raw_score = float(item.get("score", 0.0) or 0.0)
             similarity = 1.0 / (1.0 + max(raw_score, 0.0))
+            memory_id = item.get("id", "")
+            item_metadata = user_metadata.get(memory_id, {})
+            source_session_ids = _extract_source_session_ids(item_metadata)
             formatted.append(
                 {
-                    "id": item.get("id", ""),
+                    "id": memory_id,
                     "memory": item.get("content", ""),
                     "score": similarity,
+                    "metadata": item_metadata,
+                    "source_session_ids": source_session_ids,
                 }
             )
         formatted.sort(key=lambda x: x.get("score", 0.0), reverse=True)
@@ -444,6 +517,7 @@ class MemoryBankEntry:
     text: str
     date: str
     embedding: list[float]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class MemoryBankBackend(BaseMemoryBackend):
@@ -482,7 +556,7 @@ class MemoryBankBackend(BaseMemoryBackend):
             entries = []
         else:
             raw = json.loads(state_path.read_text())
-            entries = [MemoryBankEntry(**item) for item in raw]
+            entries = [MemoryBankEntry(**{**item, "metadata": item.get("metadata", {})}) for item in raw]
         self._entries[user_id] = entries
         return entries
 
@@ -493,6 +567,7 @@ class MemoryBankBackend(BaseMemoryBackend):
                 "text": entry.text,
                 "date": entry.date,
                 "embedding": entry.embedding,
+                "metadata": entry.metadata,
             }
             for entry in entries
         ]
@@ -514,7 +589,18 @@ class MemoryBankBackend(BaseMemoryBackend):
         date = observation_date or _epoch_to_date(timestamp)
         entry_id = f"{user_id}_{len(self._load_entries(user_id))}"
         embedding = await asyncio.to_thread(lambda: self.encoder.encode(content).tolist())
-        entry = MemoryBankEntry(memory_id=entry_id, text=content, date=date, embedding=embedding)
+        add_metadata = dict(metadata or {})
+        if observation_date:
+            add_metadata["benchmark_observation_date"] = observation_date
+        if timestamp is not None:
+            add_metadata["benchmark_timestamp"] = timestamp
+        entry = MemoryBankEntry(
+            memory_id=entry_id,
+            text=content,
+            date=date,
+            embedding=embedding,
+            metadata=add_metadata,
+        )
         entries = self._load_entries(user_id)
         entries.append(entry)
         self._persist_entries(user_id, entries)
@@ -544,16 +630,31 @@ class MemoryBankBackend(BaseMemoryBackend):
         order: list[str] = []
         for score, entry in top_entries:
             if entry.date not in grouped:
+                source_session_ids = _extract_source_session_ids(entry.metadata)
                 grouped[entry.date] = {
                     "id": entry.memory_id,
                     "memory": entry.text,
                     "score": score,
                     "date": entry.date,
+                    "metadata": {
+                        **entry.metadata,
+                        "source_session_ids": source_session_ids,
+                        "source_entries": [entry.metadata] if entry.metadata else [],
+                    },
+                    "source_session_ids": source_session_ids,
                 }
                 order.append(entry.date)
             else:
                 grouped[entry.date]["memory"] += f"\n{entry.text}"
                 grouped[entry.date]["score"] = max(grouped[entry.date]["score"], score)
+                existing_ids = grouped[entry.date].get("source_session_ids", [])
+                merged_ids = _dedupe_preserve_order(
+                    existing_ids + _extract_source_session_ids(entry.metadata)
+                )
+                grouped[entry.date]["source_session_ids"] = merged_ids
+                grouped[entry.date]["metadata"]["source_session_ids"] = merged_ids
+                if entry.metadata:
+                    grouped[entry.date]["metadata"]["source_entries"].append(entry.metadata)
 
         return [grouped[date] for date in order]
 

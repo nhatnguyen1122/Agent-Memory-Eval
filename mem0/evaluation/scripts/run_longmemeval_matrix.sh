@@ -21,7 +21,7 @@ TOP_K="${TOP_K:-200}"
 TOP_K_CUTOFFS="${TOP_K_CUTOFFS:-10,20,50,200}"
 QUESTION_TYPES="${QUESTION_TYPES:-}"
 PER_TYPE="${PER_TYPE:-}"
-ALL_QUESTIONS="${ALL_QUESTIONS:-1}"
+ALL_QUESTIONS="${ALL_QUESTIONS-1}"
 
 if [[ -z "${NVIDIA_API_KEY}" ]]; then
   echo "NVIDIA_API_KEY is required."
@@ -31,6 +31,10 @@ fi
 for backend in ${BACKENDS}; do
   project_name="${PROJECT_PREFIX}-${backend}"
   echo "Running LongMemEval with backend=${backend} project=${project_name}"
+  all_questions_arg=()
+  if [[ "${ALL_QUESTIONS}" == "1" || "${ALL_QUESTIONS}" == "true" || "${ALL_QUESTIONS}" == "yes" ]]; then
+    all_questions_arg=(--all-questions)
+  fi
   conda run -n "${CONDA_ENV}" python -m benchmarks.longmemeval.run \
     --project-name "${project_name}" \
     --memory-backend "${backend}" \
@@ -49,5 +53,5 @@ for backend in ${BACKENDS}; do
     --top-k-cutoffs "${TOP_K_CUTOFFS}" \
     ${QUESTION_TYPES:+--question-types "${QUESTION_TYPES}"} \
     ${PER_TYPE:+--per-type "${PER_TYPE}"} \
-    ${ALL_QUESTIONS:+--all-questions}
+    "${all_questions_arg[@]}"
 done

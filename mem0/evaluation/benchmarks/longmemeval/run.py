@@ -451,8 +451,23 @@ async def ingest_question(
                 debug_file.write("\n")
 
             response = None
+            source_metadata = {
+                "benchmark": "longmemeval",
+                "question_id": question_id,
+                "question_type": question.get("question_type", ""),
+                "source_session_id": session_id,
+                "source_session_idx": session_idx,
+                "source_pair_idx": pair_idx,
+                "source_date": date_str,
+                "answer_session_ids": question.get("answer_session_ids", []),
+            }
             for attempt in range(1, MAX_INGEST_RETRIES + 1):
-                response = await mem0.add(messages, user_id, timestamp=session_timestamp)
+                response = await mem0.add(
+                    messages,
+                    user_id,
+                    timestamp=session_timestamp,
+                    metadata=source_metadata,
+                )
                 if response is not None:
                     break
                 if attempt < MAX_INGEST_RETRIES:
