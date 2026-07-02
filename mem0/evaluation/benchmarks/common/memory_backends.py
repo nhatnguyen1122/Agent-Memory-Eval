@@ -97,6 +97,24 @@ def _dedupe_preserve_order(values: list[str]) -> list[str]:
     return deduped
 
 
+def _metadata_for_vector_store(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Convert benchmark metadata to vector-store-safe scalar values.
+
+    Chroma rejects lists/dicts in metadata. The benchmark sidecar still keeps
+    the original metadata for exact retrieval scoring; this sanitized copy is
+    only what gets passed into Mem0's storage path.
+    """
+    safe: dict[str, Any] = {}
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        if isinstance(value, (str, int, float, bool)):
+            safe[key] = value
+        else:
+            safe[key] = json.dumps(value, ensure_ascii=False)
+    return safe
+
+
 class BaseMemoryBackend:
     async def __aenter__(self):
         return self
@@ -239,12 +257,13 @@ class CurrentMem0Backend(BaseMemoryBackend):
             add_metadata["benchmark_observation_date"] = observation_date
         if timestamp is not None:
             add_metadata["benchmark_timestamp"] = timestamp
+        vector_store_metadata = _metadata_for_vector_store(add_metadata)
 
         def _run_add():
             return self.memory.add(
                 messages,
                 user_id=user_id,
-                metadata=add_metadata or None,
+                metadata=vector_store_metadata or None,
                 prompt=custom_instructions,
             )
 
