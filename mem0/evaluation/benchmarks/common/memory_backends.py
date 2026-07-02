@@ -38,7 +38,7 @@ AMEM_REPO = WORKSPACE_ROOT / "A-mem"
 for repo_path in (MEM0_REPO, AMEM_REPO):
     repo_str = str(repo_path)
     if repo_str not in sys.path:
-        sys.path.append(repo_str)
+        sys.path.insert(0, repo_str)
 
 
 def _messages_to_text(messages: list[dict[str, str]]) -> str:
