@@ -778,7 +778,7 @@ def create_memory_backend(
     if backend_name == "memorybank":
         return MemoryBankBackend(
             storage_dir=storage_dir,
-            embedding_model=memory_embedder_model,
+            embedding_model=os.getenv("MEMORYBANK_EMBEDDING_MODEL"),
         )
 
     raise ValueError(f"Unsupported memory backend: {backend_name}")
