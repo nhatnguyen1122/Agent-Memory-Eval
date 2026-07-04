@@ -165,6 +165,8 @@ class CurrentMem0Backend(BaseMemoryBackend):
         embedder_model: str | None,
         api_key: str | None,
         base_url: str | None,
+        embedder_api_key: str | None = None,
+        embedder_base_url: str | None = None,
     ):
         os.environ.setdefault("MEM0_DIR", str(storage_dir / ".mem0"))
         from mem0.memory.main import Memory
@@ -203,10 +205,14 @@ class CurrentMem0Backend(BaseMemoryBackend):
         }
         if api_key:
             llm_config["config"]["api_key"] = api_key
-            embedder_config["config"]["api_key"] = api_key
         if base_url:
             llm_config["config"]["openai_base_url"] = base_url
-            embedder_config["config"]["openai_base_url"] = base_url
+        embedder_key = embedder_api_key or api_key
+        embedder_url = embedder_base_url or base_url
+        if embedder_key:
+            embedder_config["config"]["api_key"] = embedder_key
+        if embedder_url:
+            embedder_config["config"]["openai_base_url"] = embedder_url
 
         config = {
             "version": "v1.1",
@@ -731,6 +737,14 @@ def create_memory_backend(
     memory_base_url = getattr(args, "memory_base_url", None) or os.getenv("MEMORY_BASE_URL")
     memory_model = getattr(args, "memory_model", None) or os.getenv("MEMORY_MODEL")
     memory_embedder_model = getattr(args, "memory_embedder_model", None) or os.getenv("MEMORY_EMBEDDER_MODEL")
+    memory_embedder_api_key = (
+        getattr(args, "memory_embedder_api_key", None)
+        or os.getenv("MEMORY_EMBEDDER_API_KEY")
+    )
+    memory_embedder_base_url = (
+        getattr(args, "memory_embedder_base_url", None)
+        or os.getenv("MEMORY_EMBEDDER_BASE_URL")
+    )
 
     if backend_name == "mem0":
         return CurrentMem0Backend(
@@ -740,6 +754,8 @@ def create_memory_backend(
             embedder_model=memory_embedder_model,
             api_key=memory_api_key,
             base_url=memory_base_url,
+            embedder_api_key=memory_embedder_api_key,
+            embedder_base_url=memory_embedder_base_url,
         )
     if backend_name == "mem0_graph":
         return CurrentMem0Backend(
@@ -749,6 +765,8 @@ def create_memory_backend(
             embedder_model=memory_embedder_model,
             api_key=memory_api_key,
             base_url=memory_base_url,
+            embedder_api_key=memory_embedder_api_key,
+            embedder_base_url=memory_embedder_base_url,
         )
     if backend_name == "a_mem":
         return AMemBackend(

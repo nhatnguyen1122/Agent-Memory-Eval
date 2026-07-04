@@ -25,6 +25,40 @@ Optional overrides:
 ENV_NAME=memory_eval312 PYTHON_VERSION=3.12 bash mem0/evaluation/scripts/setup_conda_env.sh
 ```
 
+## Provider Profiles
+
+The scripts support OpenAI-compatible chat providers through `LLM_PROFILE`.
+API keys are read from environment variables; do not commit them.
+
+```bash
+# GPT-OSS via NetMind/Viettel gateway
+export LLM_PROFILE=gptoss
+export GPTOSS_API_KEY=...
+
+# Qwen
+export LLM_PROFILE=qwen
+export QWEN_API_KEY=...
+
+# Qwen3
+export LLM_PROFILE=qwen3
+export QWEN3_API_KEY=...
+
+# NVIDIA chat
+export LLM_PROFILE=nvidia
+export NVIDIA_API_KEY=...
+```
+
+Mem0 still needs an embedding model. By default the scripts use NVIDIA NIM
+embeddings because the NetMind chat models are not embedding models:
+
+```bash
+export NVIDIA_API_KEY=...
+export MEMORY_EMBEDDER_MODEL=nvidia/llama-nemotron-embed-1b-v2
+```
+
+For Qwen/Qwen3, the scripts set `enable_thinking=false` for OpenAI-compatible
+chat requests.
+
 ## NVIDIA NIM run path
 
 Export the API key and optional model overrides:
@@ -57,6 +91,20 @@ bash mem0/evaluation/scripts/run_locomo_small_matrix.sh
 bash mem0/evaluation/scripts/run_longmemeval_small_matrix.sh
 bash mem0/evaluation/scripts/run_small_matrix.sh
 ```
+
+Run LoCoMo incrementally in round-robin chunks:
+
+```bash
+LLM_PROFILE=gptoss \
+GPTOSS_API_KEY=... \
+NVIDIA_API_KEY=... \
+CHUNK_SIZE=1 \
+LOCOMO_ROUNDS=100 \
+bash mem0/evaluation/scripts/run_locomo_round_robin_matrix.sh
+```
+
+Default category order is `1 4 3 2`: multi-hop, single-hop, open-domain,
+temporal. Override with `CATEGORY_ORDER="1 2 3 4"` if needed.
 
 Small subset defaults:
 

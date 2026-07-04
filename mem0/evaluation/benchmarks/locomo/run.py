@@ -594,6 +594,7 @@ def expected_locomo_question_items(
     dataset: list[dict],
     conv_indices: list[int],
     categories: list[int],
+    question_offset: int,
     max_questions: int | None,
 ) -> list[tuple[str, int, int, dict]]:
     """(question_id, conv_idx, qa_idx, qa_dict) for every question in scope."""
@@ -607,6 +608,8 @@ def expected_locomo_question_items(
             (qi, qa) for qi, qa in enumerate(questions)
             if qa.get("category") in categories
         ]
+        if question_offset:
+            conv_questions = conv_questions[question_offset:]
         if max_questions is not None:
             conv_questions = conv_questions[:max_questions]
         for qi, qa in conv_questions:
@@ -750,6 +753,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--with-evidence", action="store_true", help="Pass evidence to judge")
     parser.add_argument("--user-profile", action="store_true", help="Fetch user profiles")
     parser.add_argument("--max-questions", type=int, default=None, help="Max questions to process (for quick testing)")
+    parser.add_argument(
+        "--question-offset",
+        type=int,
+        default=0,
+        help="Skip this many in-scope questions per conversation after category filtering",
+    )
     parser.add_argument("--rpm", type=int, default=200, help="Requests per minute for LLM")
     parser.add_argument("--backend", default="oss", choices=["oss", "cloud"],
                         help="Mem0 backend: 'oss' for self-hosted server (default), 'cloud' for api.mem0.ai")
@@ -782,6 +791,16 @@ def parse_args() -> argparse.Namespace:
         "--memory-embedder-model",
         default=None,
         help="Embedding model used internally by the memory backend when applicable.",
+    )
+    parser.add_argument(
+        "--memory-embedder-api-key",
+        default=None,
+        help="API key for memory-system embedding calls (defaults to --memory-api-key).",
+    )
+    parser.add_argument(
+        "--memory-embedder-base-url",
+        default=None,
+        help="OpenAI-compatible base URL for memory-system embedding calls.",
     )
     parser.add_argument(
         "--memory-storage-dir",
@@ -846,7 +865,7 @@ async def async_main() -> None:
 
     if args.evaluate_only:
         expected_items = expected_locomo_question_items(
-            dataset, conv_indices, categories, args.max_questions,
+            dataset, conv_indices, categories, args.question_offset, args.max_questions,
         )
         if not expected_items:
             print("No questions in scope (check --conversations / --categories).")
@@ -905,6 +924,8 @@ async def async_main() -> None:
                 "top_k_cutoffs": [cutoff_label(c) for c in cutoffs],
                 "total_questions": len(all_evaluations),
                 "categories": categories,
+                "question_offset": args.question_offset,
+                "max_questions": args.max_questions,
                 "evaluate_only": True,
             },
             "metrics_by_cutoff": metrics,
@@ -982,6 +1003,8 @@ async def async_main() -> None:
                 (qi, qa) for qi, qa in enumerate(questions)
                 if qa.get("category") in categories
             ]
+            if args.question_offset:
+                conv_questions = conv_questions[args.question_offset:]
             if args.max_questions is not None:
                 conv_questions = conv_questions[:args.max_questions]
 
@@ -1050,6 +1073,8 @@ async def async_main() -> None:
                     "top_k_cutoffs": [cutoff_label(c) for c in cutoffs],
                     "total_questions": len(all_evaluations),
                     "categories": categories,
+                    "question_offset": args.question_offset,
+                    "max_questions": args.max_questions,
                 },
                 "metrics_by_cutoff": metrics,
                 "evaluations": all_evaluations,

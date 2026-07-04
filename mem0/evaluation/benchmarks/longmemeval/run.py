@@ -1118,6 +1118,14 @@ def parse_args() -> argparse.Namespace:
         help="Embedding model used internally by the memory backend when applicable.",
     )
     parser.add_argument(
+        "--memory-embedder-api-key", default=None,
+        help="API key for memory-system embedding calls (defaults to --memory-api-key).",
+    )
+    parser.add_argument(
+        "--memory-embedder-base-url", default=None,
+        help="OpenAI-compatible base URL for memory-system embedding calls.",
+    )
+    parser.add_argument(
         "--memory-storage-dir", default=".benchmark_state",
         help="Persistent storage root for local benchmark backends.",
     )

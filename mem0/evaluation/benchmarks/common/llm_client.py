@@ -82,6 +82,11 @@ class LLMClient:
             return {}
         return {"temperature": temperature}
 
+    def _openai_extra_body_kwargs(self) -> dict[str, Any]:
+        if os.getenv("OPENAI_EXTRA_BODY_ENABLE_THINKING", "").lower() in {"false", "0", "no"}:
+            return {"extra_body": {"enable_thinking": False}}
+        return {}
+
     def _parse_yes_no_judgment(self, raw: str) -> bool:
         """Extract the final yes/no verdict from judge output."""
         text = raw.strip()
@@ -170,6 +175,7 @@ class LLMClient:
                             messages=messages,
                             **self._openai_chat_temperature_kwargs(temperature),
                             **self._openai_chat_token_limit_kwargs(max_tokens),
+                            **self._openai_extra_body_kwargs(),
                         ),
                         timeout=self.timeout,
                     )
@@ -272,6 +278,7 @@ class LLMClient:
                             **self._openai_chat_temperature_kwargs(temperature),
                             response_format={"type": "json_object"},
                             **self._openai_chat_token_limit_kwargs(max_tokens),
+                            **self._openai_extra_body_kwargs(),
                         ),
                         timeout=self.timeout,
                     )

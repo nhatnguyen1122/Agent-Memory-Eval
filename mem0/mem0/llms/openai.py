@@ -138,6 +138,11 @@ class OpenAILLM(LLMBase):
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
+        if os.getenv("OPENAI_EXTRA_BODY_ENABLE_THINKING", "").lower() in {"false", "0", "no"}:
+            params["extra_body"] = {
+                **(params.get("extra_body") or {}),
+                "enable_thinking": False,
+            }
         response = self.client.chat.completions.create(**params)
         parsed_response = self._parse_response(response, tools)
         if self.config.response_callback:
