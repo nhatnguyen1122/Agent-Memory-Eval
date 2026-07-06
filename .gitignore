@@ -24,7 +24,9 @@ mem0/evaluation/logs/
 mem0/evaluation/.benchmark_state/
 mem0/evaluation/.benchmark_state_smoke*/
 mem0/evaluation/.benchmark_state_pair_smoke*/
+mem0/evaluation/.demo_state/
 mem0/evaluation/datasets/
+mem0/evaluation/reports/*.md
 mem0/evaluation/sv/
 mem0/evaluation/**/*.log
 
